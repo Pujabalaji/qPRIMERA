@@ -4,17 +4,19 @@ import os
 import argparse
 from transformers import Adafactor
 from tqdm import tqdm
+import evaluate
 
 import pandas as pd
 import pdb
 from datasets import load_dataset, load_metric
 import json
 from transformers import (
+    # LEDTokenizer,
+    LEDForConditionalGeneration,
+    AutoModelForSeq2SeqLM,
     AutoTokenizer,
     get_linear_schedule_with_warmup,
     get_constant_schedule_with_warmup,
-    LEDTokenizer,
-    LEDForConditionalGeneration,
 )
 from dataloader import (
     get_dataloader_summ,
@@ -25,6 +27,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
 from pathlib import Path
+import datasets
 
 
 def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=-100):
@@ -56,8 +59,10 @@ class PRIMERSummarizer(pl.LightningModule):
         super(PRIMERSummarizer, self).__init__()
         self.args = args
 
-        self.tokenizer = AutoTokenizer.from_pretrained(args.primer_path)
-        self.model = LEDForConditionalGeneration.from_pretrained(args.primer_path)
+        self.tokenizer = AutoTokenizer.from_pretrained("allenai/PRIMERA")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("allenai/PRIMERA")
+        # self.tokenizer = AutoTokenizer.from_pretrained(args.primer_path)
+        # self.model = LEDForConditionalGeneration.from_pretrained(args.primer_path)
         self.model.gradient_checkpointing_enable()
         # if args.debug_mode:
         #     pdb.set_trace()
@@ -160,7 +165,8 @@ class PRIMERSummarizer(pl.LightningModule):
         return loss
 
     def compute_rouge_batch(self, input_ids, output_ids, gold_str):
-        scorer = load_metric("rouge")
+        # scorer = evaluate.load("rouge")
+        scorer = datasets.load_metric("rouge")
         # pdb.set_trace()
 
         # get the input ids and attention masks together
@@ -230,12 +236,13 @@ class PRIMERSummarizer(pl.LightningModule):
                     of.write(pred)
                 idx += 1
 
-            s = scorer.compute(
+            s = scorer.compute( # scorer = datasets.load_metric("rouge")
                 predictions=[pred],
                 references=[ref],
-                use_agregator=False,
-                use_stemmer=True,
+                use_aggregator=False,
+                # use_stemmer=True,
             )
+
             result_batch.append(
                 (
                     s["rouge1"][0].recall,
@@ -272,7 +279,7 @@ class PRIMERSummarizer(pl.LightningModule):
 
     def compute_rouge_all(self, outputs, output_file=None):
         rouge_result_all = [r for b in outputs for r in b["rouge_result"]]
-        names = []
+        names = [] # "rouge-1", "rouge-2", "rouge-L", "rouge-Lsum"
         for rouge in ["1", "2", "L", "Lsum"]:
             names.extend(
                 [
@@ -282,11 +289,12 @@ class PRIMERSummarizer(pl.LightningModule):
                 ]
             )
         rouge_results = pd.DataFrame(rouge_result_all, columns=names)
+        # avg = [rouge_results.mean()]
         avg = [rouge_results[c].mean() for c in rouge_results.columns]
         rouge_results.loc["avg_score"] = avg
         if output_file:
             csv_name = (
-                args.model_path
+                self.args.model_path
                 + output_file
                 + "-%d.csv" % (torch.distributed.get_rank() if self.use_ddp else 0)
             )
@@ -381,7 +389,7 @@ def train(args):
         save_top_k=args.saveTopK,
         monitor="avgr",
         mode="max",
-        save_on_train_epoch_end=False,
+        # save_on_train_epoch_end=None,
     )
 
     # initialize logger
@@ -408,7 +416,9 @@ def train(args):
     # load datasets
     if args.dataset_name in ["multi_news", "multi_x_science_sum"]:
 
-        hf_datasets = load_dataset(args.dataset_name, cache_dir=args.data_path)
+        # hf_datasets = load_dataset(args.dataset_name, cache_dir=args.data_path, download_mode="force_redownload")
+        # hf_datasets = load_dataset(args.dataset_name, cache_dir=args.data_path, revision="main")
+        hf_datasets = load_dataset(args.dataset_name, cache_dir=args.data_path + args.dataset_name)
         train_dataloader = get_dataloader_summ(
             args, hf_datasets, model.tokenizer, "train", 0, True
         )
@@ -516,7 +526,7 @@ if __name__ == "__main__":
 
     ########################
     # Gneral
-    parser.add_argument("--gpus", default=0, type=int, help="number of gpus to use")
+    parser.add_argument("--gpus", default=4, type=int, help="number of gpus to use")
     parser.add_argument(
         "--accelerator", default=None, type=str, help="Type of accelerator"
     )
@@ -525,7 +535,7 @@ if __name__ == "__main__":
         "--model_name", default="primer",
     )
     parser.add_argument(
-        "--primer_path", type=str, default="../PRIMER/",
+        "--primer_path", type=str, default="allenai/PRIMERA/",
     )
     parser.add_argument("--join_method", type=str, default="concat_start_wdoc_global")
     parser.add_argument(
@@ -554,7 +564,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--data_path", type=str, default="../dataset/")
-    parser.add_argument("--dataset_name", type=str, default="arxiv")
+    parser.add_argument("--dataset_name", type=str, default="multi_news")
     parser.add_argument(
         "--num_workers",
         type=int,
