@@ -18,6 +18,8 @@ from rouge_score import rouge_scorer
 import re
 import spacy
 
+from functools import partial
+from sentence_transformers import SentenceTransformer, util
 
 def get_src_tgt_with_mask(
     mask_indices,
@@ -123,12 +125,52 @@ def truncate_doc(all_docs, max_length_input, mask_ratio, non_mask_ratio):
     return truncated_doc, truncated_scores
 
 
+def baseline_selection(doc, query):
+    '''
+    Selects based on the number of times a query appears in the document.
+    '''
+
+    return doc.count(query)
+
+
+def embedding_similarity_score(all_docs, query, model=None):
+
+    if not model:
+        model = SentenceTransformer('sentence-transformers/msmarco-distilbert-base-tas-b')
+
+    query_emb = model.encode(query)
+    doc_emb = model.encode(all_docs)
+
+    return util.dot_score(query_emb, doc_emb)[0].cpu().tolist()
+
+
+def select_documents(all_docs, query, doc_num, selection_func=None, score_func=None):
+    '''
+    Given a selection function (doc, query) -> int, returns the top doc_num documents in all_docs.
+    Alternatively, take a score_func (all_docs, query) -> list(int), in which case it will sort by the score values.
+    '''
+
+    if score_func:
+        scores = score_func(all_docs, query)
+        doc_score_pairs = list(zip(all_docs, scores))
+        ranked_doc_pairs = sorted(doc_score_pairs, key=lambda x: x[1], reverse=True)
+        ranked_docs = [pair[0] for pair in ranked_doc_pairs]
+    elif selection_func:
+        ranked_docs = sorted(all_docs, key=partial(selection_func, query=query), reverse=True)
+    else:
+        raise Exception('Must provide either a selection or score function.')
+    return ranked_docs[:doc_num]
+
+
 def process_single_data_with_scores(
     all_docs,
+    query,
+    doc_num,
     tokenizer,
     max_length_input,
     max_length_output,
     mask_ratio,
+    selection_method="baseline",
     metric="pegasus_score",
     strategy="greedy",
     non_mask_ratio=0.5,
@@ -157,9 +199,13 @@ def process_single_data_with_scores(
 
     entities = all_docs["entities_pyramid"]
     all_docs = all_docs["data"]
+    if selection_method == "baseline":
+        filtered_docs = select_documents(all_docs, query, doc_num, selection_func=baseline_selection)
+    elif selection_method == "embedding":
+        filtered_docs = select_documents(all_docs, query, doc_num, score_func=embedding_similarity_score)
     # Truncate the documents to desired
     truncated_doc, scores = truncate_doc(
-        all_docs, max_length_input, mask_ratio, non_mask_ratio
+        filtered_docs, max_length_input, mask_ratio, non_mask_ratio
     )
     total_num_sentences = sum([len(d) for d in truncated_doc])
     mask_sent_num = int(total_num_sentences * mask_ratio)

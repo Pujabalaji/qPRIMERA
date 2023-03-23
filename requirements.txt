@@ -4,3 +4,4 @@ spacy==2.3.3
 nltk==3.6.1
 tqdm==4.49.0
 rouge-score
+sentence-transformers
