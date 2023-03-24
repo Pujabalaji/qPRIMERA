@@ -5,7 +5,6 @@ def compute_query_to_document_scores(query, all_docs):
     tokenized_corpus = [doc.split(" ") for doc in all_docs]
     bm25 = BM25Okapi(tokenized_corpus)
     # give BM25 the query and return the doc scores
-    query = "windy London"
     tokenized_query = query.split(" ")
     return bm25.get_scores(tokenized_query)
 
