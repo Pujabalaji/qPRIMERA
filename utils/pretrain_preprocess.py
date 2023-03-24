@@ -183,7 +183,7 @@ def process_single_data_with_scores(
     return {"src": src, "tgt": tgt}
 
 
-def compute_all_scores_single_data(all_docs, i):
+def compute_all_scores_single_data(alpha, query, all_docs, i):
     cluster = [
         [
             s.strip()
@@ -197,13 +197,13 @@ def compute_all_scores_single_data(all_docs, i):
     # take much time process very long sequence.
     if sum([len(d) for d in cluster]) > 600:
         return [
-            [{"text": s, "pegasus_score": 0, "pyramid_rouge": 0} for s in d]
+            [{"text": s, "pegasus_score": 0, "pyramid_rouge": 0, "two_stage_sentence_selection_score": 0} for s in d]
             for d in cluster
         ]
     scorer = rouge_scorer.RougeScorer(
         ["rouge1", "rouge2", "rougeL", "rougeLsum"], use_stemmer=True
     )
-    data_with_scores = compute_scores(cluster, scorer)
+    data_with_scores = compute_scores(alpha, query, all_docs, cluster, scorer)
 
     # update entities
     result = update_entities(data_with_scores)

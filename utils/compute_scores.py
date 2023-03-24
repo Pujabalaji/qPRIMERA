@@ -1,4 +1,15 @@
-def compute_scores(cluster, scorer):
+from rank_bm25 import BM25, BM25Okapi, BM25L, BM25Plus
+
+def compute_query_to_document_scores(query, all_docs):
+    # create an instance of the BM25 class
+    tokenized_corpus = [doc.split(" ") for doc in all_docs]
+    bm25 = BM25Okapi(tokenized_corpus)
+    # give BM25 the query and return the doc scores
+    query = "windy London"
+    tokenized_query = query.split(" ")
+    return bm25.get_scores(tokenized_query)
+
+def compute_scores(alpha, query, all_docs, cluster, scorer):
     """
     input:
         cluster: list of list of str, each str is sentence.
@@ -17,6 +28,9 @@ def compute_scores(cluster, scorer):
           ...],
         ...]
     """
+    # compute query-to-document scores
+    query_to_document_scores = compute_query_to_document_scores(query, all_docs)
+
     # cluster = [[s for p in doc.split('\n') for s in sent_tokenize(p) if s!=''] for doc in documents.split('|||||')]
     result_dict = []
     all_text = "\n".join(["\n".join(d) for d in cluster])
@@ -26,7 +40,7 @@ def compute_scores(cluster, scorer):
             # if s is too short, i.e. less than 5 chars, we directly set scores to 0
             if len(s.split()) < 5:
                 result_dict[-1].append(
-                    {"text": s, "pegasus_score": 0, "pyramid_rouge": 0}
+                    {"text": s, "pegasus_score": 0, "pyramid_rouge": 0, "two_stage_sentence_selection_score": 0}
                 )
                 continue
             # compute pegasus_score
@@ -49,14 +63,19 @@ def compute_scores(cluster, scorer):
                         + scores["rouge2"][0].fmeasure
                         + scores["rougeL"][0].fmeasure
                     ) / 3
-
                 else:
                     continue
+
+            # compute two stage sentence selection score (involves cluster rouge and query-to-document score)
+            query_to_document_score = query_to_document_scores[i_doc]
+            two_stage_sentence_selection_score = (1 - alpha) * pyramid_score + alpha * query_to_document_score
+
             result_dict[-1].append(
                 {
                     "text": s,
                     "pegasus_score": pegasus_score,
                     "pyramid_rouge": pyramid_score,
+                    "two_stage_sentence_selection_score": two_stage_sentence_selection_score
                 }
             )
     return result_dict
