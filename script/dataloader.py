@@ -56,7 +56,8 @@ class SummarizationDataset(Dataset):
             )
         else:  # multi-doc setting
             if self.dataset_name == "multi_news":
-                all_docs = entry["document"].split("|||||")[:-1]
+                # all_docs = entry["document"].split("|||||")[:-1]
+                all_docs = entry["document"].split("|||||")
                 for i, doc in enumerate(all_docs):
                     doc = doc.replace("\n", " ")
                     doc = " ".join(doc.split())

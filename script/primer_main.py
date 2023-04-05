@@ -236,7 +236,8 @@ class PRIMERSummarizerLN(pl.LightningModule):
             s = scorer.compute(
                 predictions=[pred],
                 references=[ref],
-                use_agregator=False,
+                #use_agregator=False,
+                use_aggregator=False,
                 use_stemmer=True,
             )
             result_batch.append(
