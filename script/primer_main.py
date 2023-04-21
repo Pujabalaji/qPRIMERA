@@ -404,11 +404,7 @@ def pretrain(args):
         else None,
         logger=logger,
         log_every_n_steps=5,
-        callbacks=checkpoint_callback,
-        checkpoint_callback=True,
-        progress_bar_refresh_rate=args.progress_bar_refresh_rate * args.acc_batch
-        if not args.debug_mode
-        else 1,
+        callbacks=[checkpoint_callback],
         precision=32 if args.fp32 else 16,
         resume_from_checkpoint=args.resume_ckpt,
         accelerator=args.accelerator,
@@ -479,11 +475,7 @@ def train(args):
         else 5,
         logger=logger,
         log_every_n_steps=5,
-        callbacks=checkpoint_callback,
-        checkpoint_callback=True,
-        progress_bar_refresh_rate=args.progress_bar_refresh_rate * args.acc_batch
-        if not args.debug_mode
-        else 1,
+        callbacks=[checkpoint_callback],
         precision=32 if args.fp32 else 16,
         plugins=DDPPlugin(find_unused_parameters=False)
         if args.accelerator == "ddp"
@@ -551,8 +543,6 @@ def test(args):
         max_steps=args.total_steps * args.acc_batch,
         replace_sampler_ddp=False,
         log_every_n_steps=5,
-        checkpoint_callback=True,
-        progress_bar_refresh_rate=args.progress_bar_refresh_rate,
         precision=32 if args.fp32 else 16,
         accelerator=args.accelerator,
         limit_test_batches=args.limit_test_batches if args.limit_test_batches else 1.0,
