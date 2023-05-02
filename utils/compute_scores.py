@@ -29,6 +29,7 @@ def compute_scores(alpha, query, all_docs, cluster, scorer):
     """
     # compute query-to-document scores
     query_to_document_scores = compute_query_to_document_scores(query, all_docs)
+    # query_to_document_scores = compute_query_to_document_scores(query, cluster) # computes query-to-sentence scores
 
     # cluster = [[s for p in doc.split('\n') for s in sent_tokenize(p) if s!=''] for doc in documents.split('|||||')]
     result_dict = []

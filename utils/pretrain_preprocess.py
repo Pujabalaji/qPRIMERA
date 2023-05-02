@@ -298,7 +298,7 @@ def process_all_newshead(
                     if mode == "compute_all_scores":
                         new_data.append(
                             compute_all_scores_single_data(
-                                [doc["text"] for doc in d["articles"]], i
+                                alpha, query, [doc["text"] for doc in d["articles"]], i
                             )
                         )
 

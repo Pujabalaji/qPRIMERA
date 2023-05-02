@@ -18,7 +18,8 @@ import pdb
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.plugins import DDPPlugin
+# from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.strategies import DDPStrategy
 from datasets import load_dataset, load_metric
 from dataloader import (
     get_dataloader_summ,
@@ -288,7 +289,7 @@ class PRIMERSummarizerLN(pl.LightningModule):
         rouge_results.loc["avg_score"] = avg
         if output_file:
             csv_name = (
-                args.model_path
+                self.args.model_path
                 + output_file
                 + "_beam=%d" % (self.args.beam_size)
                 + "_lenPenalty=%.2f" % (self.args.length_penalty)
@@ -399,7 +400,8 @@ def pretrain(args):
         replace_sampler_ddp=False,
         accumulate_grad_batches=args.acc_batch,
         val_check_interval=args.eval_steps * args.acc_batch,
-        plugins=DDPPlugin(find_unused_parameters=False)
+        # plugins=DDPPlugin(find_unused_parameters=False)
+        strategy=DDPStrategy(find_unused_parameters=False)
         if args.accelerator == "ddp"
         else None,
         logger=logger,
@@ -477,7 +479,8 @@ def train(args):
         log_every_n_steps=5,
         callbacks=[checkpoint_callback],
         precision=32 if args.fp32 else 16,
-        plugins=DDPPlugin(find_unused_parameters=False)
+        # plugins=DDPPlugin(find_unused_parameters=False)
+        strategy=DDPStrategy(find_unused_parameters=False)
         if args.accelerator == "ddp"
         else None,
         accelerator=args.accelerator,
