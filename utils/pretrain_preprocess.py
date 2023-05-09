@@ -8,10 +8,11 @@ import argparse
 from multiprocessing import Pool
 import numpy as np
 
-from led_summ.utils.compute_scores import (
+from compute_scores import (
     compute_scores,
     get_entities,
 )
+
 from tqdm import tqdm
 from timeit import default_timer as timer
 from rouge_score import rouge_scorer
@@ -28,6 +29,9 @@ def get_src_tgt_with_mask(
     non_mask_ratio=0.5,
     unchanged_mask_indices=None,
 ):
+    """
+    Return the final (source with sentences replaced by mask, target masked sentences).
+    """
     tgt = []
     cur_idx = 0
     # print(mask_indices, int(len(mask_indices) * non_mask_ratio))
