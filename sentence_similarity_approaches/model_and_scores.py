@@ -12,6 +12,8 @@ import torch
 from datasets import Dataset, load_dataset, load_metric
 import statistics
 
+from huggingface_hub import snapshot_download
+from tensorflow_hub import KerasLayer
 
 """
 Working directory: qPRIMERA/script/
@@ -189,23 +191,25 @@ if __name__ == "__main__":
     #   change comments to load the appropriate model, call appropriate get_filtered_documents function
     # download the clean_text_from_urls csv
 
+    '''
     bert_name = "sebastian-hofstaetter/distilbert-dot-tas_b-b256-msmarco"
     bert_tokenizer = AutoTokenizer.from_pretrained(bert_name)
     bert_model = AutoModel.from_pretrained(bert_name).cuda()
-
     '''
+
     universal_sentence_encoder_path = snapshot_download(repo_id="Dimitre/universal-sentence-encoder")
     universal_sentence_encoder = KerasLayer(handle=universal_sentence_encoder_path)
-    '''
 
-    starting_indx = 0
-    csv_filename = f'clean_text_from_urls_{starting_indx}.csv'
+    starting_indx = 600
+    csv_filename = f'clean_text_from_urls_{starting_indx}_final.csv'
     data = sentence_similarity.read_data_from_csv(csv_filename)
     pruned_docs_all = []
     for idx in range(len(data)):
         query = data[idx]['query']
         docs = data[idx]['docs']
-        pruned_docs_all.append('|||||'.join(sentence_similarity.get_filtered_documents_bert(query, docs, bert_tokenizer, bert_model)))
-        # pruned_docs_all.append('|||||'.join(sentence_similarity.get_filtered_documents_universal_sentence_encoder(query, docs)))
+        
+        # pruned_docs_all.append('|||||'.join(sentence_similarity.get_filtered_documents_bert(query, docs, bert_tokenizer, bert_model)))
+        pruned_docs_all.append('|||||'.join(sentence_similarity.get_filtered_documents_universal_sentence_encoder(query, docs, universal_sentence_encoder)))
+        # pruned_docs_all.append('|||||'.join(docs))
 
     run_model(pruned_docs_all, starting_indx)    

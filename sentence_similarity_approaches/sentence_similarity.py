@@ -34,7 +34,8 @@ print('loaded primera')
 '''
 
 # number of sentences to filter each doc down to
-n_sentences = 5
+#n_sentences = 5
+n_sentences = 10
 
 def split(txt, seps):
     default_sep = seps[0]
